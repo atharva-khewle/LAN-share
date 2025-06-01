@@ -30,8 +30,8 @@ A beautiful, real-time, web-based local network file sharing system with **live 
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/lan-share.git
-cd lan-share
+git clone https://github.com/atharva-khewle/LAN-share.git
+cd LAN-share
 npm install
 ```
 
@@ -126,8 +126,8 @@ MIT License. Do whatever you want, but consider giving credit! 😊
 ## ✍️ Author
 
 **Atharva Khewle**  
-Twitter: [@atharvakhewle](https://twitter.com/atharvakhewle)  
-GitHub: [atharvakhewle](https://github.com/atharvakhewle)
+Twitter: [@atharvamainwork](https://twitter.com/atharvamainwork)  
+GitHub: [atharva-khewle](https://github.com/atharva-khewle)
 
 ---
 
