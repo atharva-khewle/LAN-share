@@ -468,16 +468,32 @@ app.get('/api/list', async (req, res) => {
   }
 });
 
+
 // ─── Preview Text Files ─────────────────────────────────────────────────────
 app.get('/api/preview', async (req, res) => {
   try {
-    const absFile = validatePath(req.query.path || '');
-    const content = await fsPromises.readFile(absFile, 'utf8');
-    res.json({ content });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+      const absFile = validatePath(req.query.path || '');
+      const stats = await fsPromises.stat(absFile);
+      
+      // Increase size limit to 2MB
+      if (stats.size > 2 * 1024 * 1024) {
+          return res.status(413).json({ error: 'File too large for preview' });
+      }
+
+      // Try UTF-8 first, then fallback to binary
+      try {
+          const content = await fsPromises.readFile(absFile, 'utf8');
+          res.json({ content });
+      } catch (utf8Error) {
+          const buffer = await fsPromises.readFile(absFile);
+          res.json({ content: buffer.toString('binary') });
+      }
+  } catch (error) {
+      res.status(500).json({ error: error.message });
   }
 });
+
+
 
 // ─── Stream / Download File ─────────────────────────────────────────────────
 // Proper Range-based streaming for video/audio

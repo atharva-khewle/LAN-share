@@ -765,6 +765,14 @@
         <div class="media-container">
             <div class="preview-header">
                 <h3 id="previewTitle"></h3>
+                <div>
+                    <button id="vlcPlayBtn" style="display: none; background: #ff8800; color: white; padding: 5px 10px; border-radius: 4px; margin-right: 10px;">
+                        <i class="fab fa-vlc"></i> Play in VLC
+                    </button>
+                    <button onclick="closePreview()" class="close-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>            
                 <button onclick="closePreview()" class="close-btn">
                     <i class="fas fa-times"></i>
                 </button>
@@ -786,6 +794,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/5.1.0/marked.min.js"></script>
     <script>
+
+        const previewableExtensions = {
+            // Code files
+            code: ['js', 'py', 'html', 'css', 'java', 'c', 'cpp', 'ts', 'r', 'sh', 'php', 'xml', 'yml', 'yaml', 'ini', 'conf', 'bat', 'cmd', 'ps1', 'vbs', 'go', 'rs', 'swift', 'kt', 'dart', 'lua', 'pl', 'rb', 'sql', 'hs', 'scala', 'groovy', 'less', 'sass', 'scss', 'styl', 'tsx', 'jsx', 'vue', 'svelte', 'elm', 'clj', 'cljs', 'edn', 'ex', 'exs', 'elm', 'coffee', 'litcoffee', 'd', 'erl', 'hrl', 'f', 'f90', 'f95', 'f03', 'f08', 'for', 'ftn', 'fpp', 'adb', 'ads', 'asm', 's', 'agc', 'aea', 'ahk', 'applescript', 'arc', 'ino', 'asm', 'au3', 'ahk', 'b', 'bf', 'brs', 'cbl', 'cob', 'cpy', 'dcl', 'e', 'ecl', 'fth', '4th', 'frt', 'fr', 'g', 'gd', 'gml', 'gcode', 'icl', 'iss', 'jcl', 'kl', 'ld', 'lisp', 'lsp', 'l', 'm', 'm4', 'mat', 'mumps', 'n', 'nb', 'nsi', 'nsh', 'o', 'p', 'p6', 'pp', 'pasm', 'pasm', 'pl', 'pm', 'pkl', 'pro', 'ps', 'ps1', 'psd1', 'psm1', 'pde', 'rpg', 'rpgle', 'sb', 'scm', 'sdl', 'spin', 'st', 'tcl', 'tcsh', 'tpl', 'vala', 'vb', 'vhd', 'vhdl', 'x', 'y', 'yaml', 'zsh'],
+            
+            // Documents
+            document: ['txt', 'csv', 'md', 'rtf'],
+            
+            // Media formats
+            video: ['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'wmv', 'mpeg', '3gp', 'ts'],
+            audio: ['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma', 'aiff', 'opus'],
+            image: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp', 'svg', 'ico', 'heic'],
+            
+            // Compressed formats
+            compressed: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz']
+          };
         // ─── Socket Connection ────────────────────────────────────────────────
         const socket = io();
         let currentPath     = '';
@@ -797,6 +821,16 @@
             sortBy: 'name',
             sortOrder: 'asc'
         };
+
+
+
+        function copyVlcUrl(url) {
+            const vlcUrl = `vlc://${url}`;
+            navigator.clipboard.writeText(vlcUrl).then(() => {
+                alert('VLC link copied! Open VLC and press Ctrl+V to play');
+            });
+        }
+        
 
         // ─── Load & Display Shared Path ─────────────────────────────────────
         async function loadSharedPath() {
@@ -1037,72 +1071,165 @@
 
         // ─── Preview File (Video/Audio/Image/Text/PDF) ──────────────────
         async function previewFile(relPath, name, type) {
-            const previewOverlay = document.getElementById('mediaPreview');
-            const videoPlayer    = document.getElementById('videoPlayer');
-            const audioPlayer    = document.getElementById('audioPlayer');
-            const imageViewer    = document.getElementById('imageViewer');
-            const textViewer     = document.getElementById('textViewer');
-            const pdfViewer      = document.getElementById('pdfViewer');
-            const pdfControls    = document.getElementById('pdfControls');
+            // Get file extension
+            const ext = name.split('.').pop().toLowerCase();
+            const mediaUrl = window.location.origin + `/api/stream?path=${encodeURIComponent(relPath)}`;
+            const vlcBtn = document.getElementById('vlcPlayBtn');
+            
+            if (type === 'video') {
+                vlcBtn.style.display = 'block';
+                vlcBtn.onclick = () => copyVlcUrl(mediaUrl);
+            } else {
+                vlcBtn.style.display = 'none';
+            }
+        
+            // Handle compressed files - download immediately
+            if (previewableExtensions.compressed.includes(ext)) {
+              downloadFile(relPath, false);
+              return;
+            }
+            
+            // Handle media previews
+            if (previewableExtensions.video.includes(ext)) {
+              previewMedia(relPath, name, 'video');
+              return;
+            }
+            
+            if (previewableExtensions.audio.includes(ext)) {
+              previewMedia(relPath, name, 'audio');
+              return;
+            }
+            
+            if (previewableExtensions.image.includes(ext)) {
+              previewMedia(relPath, name, 'image');
+              return;
+            }
+            
+            // Handle documents and code
+            if (previewableExtensions.document.includes(ext) || 
+                previewableExtensions.code.includes(ext)) {
+              previewText(relPath, name, ext);
+              return;
+            }
+            
+            // Fallback - download file
+            downloadFile(relPath, false);
+          }
+        
 
-            // Reset all
-            document.getElementById('previewTitle').textContent = name;
+
+
+          function previewMedia(relPath, name, mediaType) {
+            const mediaUrl = `/api/stream?path=${encodeURIComponent(relPath)}`;
+            const previewOverlay = document.getElementById('mediaPreview');
+            const videoPlayer = document.getElementById('videoPlayer');
+            const audioPlayer = document.getElementById('audioPlayer');
+            const imageViewer = document.getElementById('imageViewer');
+            
+            // Reset all players
             videoPlayer.style.display = 'none';
             audioPlayer.style.display = 'none';
             imageViewer.style.display = 'none';
-            textViewer.style.display = 'none';
-            pdfViewer.style.display = 'none';
-            pdfControls.style.display = 'none';
-
-            const mediaUrl = `/api/stream?path=${encodeURIComponent(relPath)}`;
-
-            if (type === 'video') {
+            
+            // Set appropriate player
+            document.getElementById('previewTitle').textContent = name;
+            
+            switch(mediaType) {
+              case 'video':
                 videoPlayer.src = mediaUrl;
                 videoPlayer.style.display = 'block';
-            } else if (type === 'audio') {
+                break;
+              case 'audio':
                 audioPlayer.src = mediaUrl;
                 audioPlayer.style.display = 'block';
-            } else if (type === 'image') {
+                break;
+              case 'image':
                 imageViewer.src = mediaUrl;
                 imageViewer.style.display = 'block';
-            } else if (type === 'text') {
-                try {
-                    const resp = await fetch(`/api/preview?path=${encodeURIComponent(relPath)}`);
-                    const data = await resp.json();
-                    let content = data.content;
-                    if (relPath.endsWith('.md')) {
-                        content = marked.parse(content);
-                    } else if (relPath.endsWith('.json')) {
-                        content = `<pre><code class="language-json">${JSON.stringify(JSON.parse(content), null, 2)}</code></pre>`;
-                    } else {
-                        content = `<pre><code>${content}</code></pre>`;
-                    }
-                    textViewer.innerHTML = content;
-                    textViewer.style.display = 'block';
-                    hljs.highlightAll();
-                } catch (e) {
-                    console.error('Error previewing text:', e);
-                    alert('Failed to load text');
-                    return;
-                }
-            } else if (type === 'pdf') {
-                try {
-                    const loadingTask = pdfjsLib.getDocument(mediaUrl);
-                    currentPdfDoc = await loadingTask.promise;
-                    currentPdfPage = 1;
-                    await renderPdfPage(currentPdfPage);
-                    pdfViewer.style.display = 'block';
-                    pdfControls.style.display = 'flex';
-                } catch (e) {
-                    console.error('Error loading PDF:', e);
-                    alert('Failed to load PDF');
-                    return;
-                }
+                break;
             }
-
+            
             previewOverlay.style.display = 'flex';
+          }
+        
+
+
+  async function previewText(relPath, name, ext) {
+    try {
+      const resp = await fetch(`/api/preview?path=${encodeURIComponent(relPath)}`);
+      if (!resp.ok) {
+        throw new Error('Failed to load file');
+      }
+      
+      const data = await resp.json();
+      const textViewer = document.getElementById('textViewer');
+      const previewOverlay = document.getElementById('mediaPreview');
+      
+      // Reset viewer
+      textViewer.innerHTML = '';
+      document.getElementById('previewTitle').textContent = name;
+      
+      let content = data.content;
+      
+      // Special handling for markdown
+      if (ext === 'md') {
+        content = marked.parse(content);
+      } 
+      // Syntax highlighting for code files
+      else if (previewableExtensions.code.includes(ext)) {
+        content = `<pre><code class="language-${ext}">${escapeHtml(content)}</code></pre>`;
+      }
+      // Format JSON
+      else if (ext === 'json') {
+        try {
+          content = JSON.stringify(JSON.parse(content), null, 2);
+          content = `<pre><code class="language-json">${escapeHtml(content)}</code></pre>`;
+        } catch {
+          content = `<pre><code>${escapeHtml(content)}</code></pre>`;
+        }
+      }
+      // Default text display
+      else {
+        content = `<pre>${escapeHtml(content)}</pre>`;
+      }
+      
+      textViewer.innerHTML = content;
+      textViewer.style.display = 'block';
+      
+      // Apply syntax highlighting
+      if (previewableExtensions.code.includes(ext) || ext === 'json') {
+        hljs.highlightAll();
+      }
+      
+      previewOverlay.style.display = 'flex';
+    } catch (error) {
+        // Fallback to text view for unsupported files
+        try {
+            const resp = await fetch(`/api/preview?path=${encodeURIComponent(relPath)}`);
+            const data = await resp.json();
+            textViewer.innerHTML = `<pre>${escapeHtml(data.content)}</pre>`;
+            textViewer.style.display = 'block';
+        } catch (fallbackError) {
+            console.error('Fallback preview failed:', fallbackError);
+            downloadFile(relPath, false);
         }
 
+    }
+  }
+
+
+
+
+  function escapeHtml(unsafe) {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+        
         async function renderPdfPage(pageNum) {
             const page = await currentPdfDoc.getPage(pageNum);
             const canvas = document.getElementById('pdfViewer');
